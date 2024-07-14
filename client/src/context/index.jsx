@@ -8,7 +8,7 @@ import "react-toastify/dist/ReactToastify.css";
 const StateContext = createContext();
 
 export const StateContextProvider = ({ children }) => {
-    const { contract } = useContract('0x0487208f7da0D0b3560cb2650c3d659739b00030');
+    const { contract } = useContract('0x04704BB4362867028A90377a86d6255125Aae279');
     const { mutateAsync: createCampaign } = useContractWrite(contract, 'createCampaign');
     const { mutateAsync: withdrawFunds } = useContractWrite(contract, 'withdrawFunds');
 
@@ -34,7 +34,6 @@ export const StateContextProvider = ({ children }) => {
                     ],
                 }
             );
-
 
 
             toast.success("Campaign created successfully.");
@@ -65,7 +64,6 @@ export const StateContextProvider = ({ children }) => {
           console.log("contract call failure", error);
         }
       };
-
 
       const deleteCampaign = async (pId) => {
         try {

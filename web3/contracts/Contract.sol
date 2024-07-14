@@ -36,7 +36,7 @@ contract Crowdfunding {
     address public manager;
     mapping(uint256 => Campaign) public campaigns;
     mapping(address => uint256[]) public ownerCampaigns;
-    mapping(uint256 => mapping(address => mapping(uint256 => bool))) public refundedDonations;
+    mapping(uint256 => mapping(address => bool)) public refundedDonations;
     mapping(uint256 => bool) public fundsWithdrawn;
     mapping(uint256 => mapping(address => bool)) public fundsWithdrawnByDonator;
 
@@ -168,15 +168,18 @@ contract Crowdfunding {
     function refundDonation(uint256 _id) public {
         Campaign storage campaign = campaigns[_id];
         require(campaign.owner != address(0), "Campaign does not exist");
+        require(!fundsWithdrawnByDonator[_id][msg.sender], "You have already withdrawn funds for this campaign");
 
         uint256 donationIndex = findDonationIndex(_id, msg.sender);
         require(donationIndex != type(uint256).max, "You have not donated to this campaign");
-        require(!refundedDonations[_id][msg.sender][donationIndex], "You have already refunded this donation");
+
+        require(!refundedDonations[_id][msg.sender], "You have already refunded your donation");
 
         uint256 donationAmount = campaign.donations[donationIndex];
 
         campaign.amountCollected -= donationAmount;
-        refundedDonations[_id][msg.sender][donationIndex] = true;
+        campaign.amountCollectedNotRefunded -= donationAmount;
+        refundedDonations[_id][msg.sender] = true;
 
         (bool success, ) = msg.sender.call{value: donationAmount}("");
         require(success, "Refund failed");
@@ -190,7 +193,7 @@ contract Crowdfunding {
                 return i;
             }
         }
-        return type(uint256).max;
+        revert("You have not donated to this campaign");
     }
 
     function withdrawFunds(uint256 _id) public authorisedPerson(_id) {
