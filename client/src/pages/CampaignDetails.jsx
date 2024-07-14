@@ -86,7 +86,7 @@ const CampaignDetails = () => {
       setIsLoading(true);
       const refundTx = await refundDonation(campaignId);
       await refundTx.wait(); // Ensure transaction is mined
-      fetchDonators(); // Refresh data donators after refund
+      fetchDonators(); // Refresh data donators after refun
   
       // Update amountCollected after refund
       const campaign = campaigns.find(c => c.pId === campaignId);
