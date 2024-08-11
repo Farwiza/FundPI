@@ -47,7 +47,7 @@ const Home = () => {
     title="Current Campaigns"
     isLoading={isLoading}
     campaigns={sortCampaignsByDeadline(campaigns.filter((campaign) => (
-      parseInt(daysLeft(campaign.deadline)) > 0 && parseFloat(campaign.amountCollected) < parseFloat(campaign.target)
+      parseInt(daysLeft(campaign.deadline)) >= 0 && parseFloat(campaign.amountCollected) < parseFloat(campaign.target)
     )))}
 
     />

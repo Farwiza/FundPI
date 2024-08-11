@@ -22,6 +22,7 @@ contract Crowdfunding {
         uint256[] donations;
         string[] donateNames; // Array baru untuk menyimpan nama donasi
         string[] donateMessages; // Array baru untuk menyimpan pesan donasi
+         bool[] refunded; // Array baru untuk melacak status refund setiap donasi
 
     }
 
@@ -39,6 +40,7 @@ contract Crowdfunding {
     mapping(uint256 => mapping(address => bool)) public refundedDonations;
     mapping(uint256 => bool) public fundsWithdrawn;
     mapping(uint256 => mapping(address => bool)) public fundsWithdrawnByDonator;
+    mapping(uint256 => mapping(uint256 => bool)) public donationWithdrawn;
 
 
 
@@ -56,17 +58,6 @@ contract Crowdfunding {
     }
 
     function createCampaign(address _owner, string memory _name, string memory _title, string memory _category, string memory _description, uint256 _target, uint256 _deadline, string memory _image) public returns (uint256) {
-    // Periksa apakah pemilik sudah memiliki campaign yang sedang berjalan
-        uint256[] memory ownerCampaignIds = ownerCampaigns[_owner];
-        for (uint256 i = 0; i < ownerCampaignIds.length; i++) {
-            uint256 campaignId = ownerCampaignIds[i];
-            Campaign storage existingCampaign = campaigns[campaignId];
-        if (existingCampaign.deadline > block.timestamp && existingCampaign.amountCollected < existingCampaign.target) {
-            revert("You already have an active campaign");
-        }
-        }
-
-        // Lanjutkan dengan pembuatan campaign baru
         Campaign storage newCampaign = campaigns[numberOfCampaigns];
 
         require(newCampaign.deadline < block.timestamp, "The deadline should be a date in the future.");
@@ -139,9 +130,10 @@ contract Crowdfunding {
         campaign.donations.push(amount);
         campaign.donateNames.push(_donateName);
         campaign.donateMessages.push(_donateMessage);
+        campaign.refunded.push(false); // Tambahkan status refund awal
 
         campaign.amountCollected += amount;
-        campaign.amountCollectedNotRefunded += amount; // Update amountCollectedNotRefunded
+        campaign.amountCollectedNotRefunded += amount;
     }
 
 
@@ -165,24 +157,24 @@ contract Crowdfunding {
 
     event RefundAttempt(address indexed donator, uint256 amount, bool success);
 
-    function refundDonation(uint256 _id) public {
+    function refundDonation(uint256 _id, uint256 donationIndex) public {
         Campaign storage campaign = campaigns[_id];
         require(campaign.owner != address(0), "Campaign does not exist");
-        require(!fundsWithdrawnByDonator[_id][msg.sender], "You have already withdrawn funds for this campaign");
-
-        uint256 donationIndex = findDonationIndex(_id, msg.sender);
-        require(donationIndex != type(uint256).max, "You have not donated to this campaign");
-
-        require(!refundedDonations[_id][msg.sender], "You have already refunded your donation");
+        require(donationIndex < campaign.donators.length, "Invalid donation index");
+        require(campaign.donators[donationIndex] == msg.sender, "Not your donation");
+        require(!campaign.refunded[donationIndex], "Donation already refunded");
+        require(!fundsWithdrawnByDonator[_id][msg.sender], "Funds already withdrawn by campaign owner");
 
         uint256 donationAmount = campaign.donations[donationIndex];
 
         campaign.amountCollected -= donationAmount;
         campaign.amountCollectedNotRefunded -= donationAmount;
-        refundedDonations[_id][msg.sender] = true;
+        campaign.refunded[donationIndex] = true;
 
         (bool success, ) = msg.sender.call{value: donationAmount}("");
         require(success, "Refund failed");
+
+        emit RefundAttempt(msg.sender, donationAmount, success);
     }
 
 
@@ -198,21 +190,26 @@ contract Crowdfunding {
 
     function withdrawFunds(uint256 _id) public authorisedPerson(_id) {
         Campaign storage campaign = campaigns[_id];
+        uint256 amountToWithdraw = 0;
 
-        uint256 amountToWithdraw = campaign.amountCollectedNotRefunded;
-        campaign.amountCollectedNotRefunded = 0;
+        for (uint256 i = 0; i < campaign.donations.length; i++) {
+            if (!campaign.refunded[i] && !donationWithdrawn[_id][i]) {
+                amountToWithdraw += campaign.donations[i];
+                donationWithdrawn[_id][i] = true;
+            }
+        }
+
+        require(amountToWithdraw > 0, "No funds to withdraw");
+
+        campaign.amountCollectedNotRefunded -= amountToWithdraw;
 
         (bool success, ) = campaign.owner.call{value: amountToWithdraw}("");
         require(success, "Withdrawal failed");
-
-        for (uint256 i = 0; i < campaign.donators.length; i++) {
-            fundsWithdrawnByDonator[_id][campaign.donators[i]] = true;
-        }
     }
 
 
-    function getDonators(uint256 _id) view public returns (address[] memory, uint256[] memory, string[] memory, string[] memory) {
-        return (campaigns[_id].donators, campaigns[_id].donations, campaigns[_id].donateNames, campaigns[_id].donateMessages);
+    function getDonators(uint256 _id) view public returns (address[] memory, uint256[] memory, string[] memory, string[] memory, bool[] memory) {
+        return (campaigns[_id].donators, campaigns[_id].donations, campaigns[_id].donateNames, campaigns[_id].donateMessages, campaigns[_id].refunded);
     }
 
     function getCampaigns() public view returns (Campaign[] memory) {

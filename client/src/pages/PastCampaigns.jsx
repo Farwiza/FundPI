@@ -27,7 +27,7 @@ const PastCampaigns = () => {
         title="Finished Campaigns"
         isLoading={isLoading}
         campaigns={campaigns.filter((campaign) => (
-          parseInt(daysLeft(campaign.deadline)) <= 0 || parseFloat(campaign.amountCollected) >= parseFloat(campaign.target)
+          parseInt(daysLeft(campaign.deadline)) < 0 || parseFloat(campaign.amountCollected) >= parseFloat(campaign.target)
         ))}
         />
       

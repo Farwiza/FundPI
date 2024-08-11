@@ -3,7 +3,8 @@ import { daysLeft } from '../utils'
 
 const FundCard = ({ owner, name, category, title,description, target, deadline, amountCollected, image, handleClick}) => {
     const remainingDays = daysLeft(deadline);
-    const isFinished = remainingDays <= 0 || amountCollected >= target;
+    const isFinished = amountCollected >= target;
+    const isExpired = remainingDays <= 0;
 
     return (
         <div className='sm:w-[288px] w-full rounded-[15px] bg-[#1c1c24] cursor-pointer' onClick={handleClick}>
@@ -27,10 +28,10 @@ const FundCard = ({ owner, name, category, title,description, target, deadline, 
                     </div>
                     <div className='flex flex-col'>
                         <h4 className='font-epilogue font-semibold text-[14px] text-[#b2b3bd] leading-[22px]'>
-                            {isFinished ? 'Finished' : remainingDays}
+                            {isFinished ? 'Finished' : (isExpired ? '0' : remainingDays)}
                         </h4>
                         <p className='mt-[3px] font-epilogue font-normal text-[12px] leading-[18px] text-[#808191] sm:max-w-[120px] truncate'>
-                            {!isFinished && remainingDays > 0 ? 'Days left' : ''}
+                            {isFinished ? '' : (isExpired ? 'Days left' : 'Days left')}
                         </p>
                     </div>
                 </div>

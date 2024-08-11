@@ -33,19 +33,7 @@ const CampaignDetails = () => {
 
   const fetchDonators = async () => {
     const data = await getDonations(state.pId);
-    const refundedData = await Promise.all(
-      data.map(async (donor) => {
-        const refunded = await getRefundedDonations(state.pId, donor.donator);
-        return refunded;
-      })
-    );
-  
-    const donators = data.map((donor, index) => ({
-      ...donor,
-      refunded: refundedData[index],
-    }));
-  
-    setDonators(donators);
+    setDonators(data);
   }
   
   
@@ -74,24 +62,22 @@ const CampaignDetails = () => {
     });
   };
 
-  const handleRefund = async (campaignId, donatorAddress) => {
+  const handleRefund = async (campaignId, donationIndex) => {
     try {
-      const fundsWithdrawnByDonator = await contract.call('fundsWithdrawnByDonator', [campaignId, donatorAddress]);
-      if (fundsWithdrawnByDonator) {
-        // Dana sudah ditarik oleh donator, tampilkan pesan error
-        toast.error('Owner Campaign sudah melakukan penarikan dana untuk campaign ini, refund tidak dapat dilakukan.');
+      const donationWithdrawn = await contract.call('donationWithdrawn', [campaignId, donationIndex]);
+      if (donationWithdrawn) {
+        toast.error('This donation has already been withdrawn by the campaign owner.');
         return;
       }
   
       setIsLoading(true);
-      const refundTx = await refundDonation(campaignId);
-      await refundTx.wait(); // Ensure transaction is mined
-      fetchDonators(); // Refresh data donators after refun
+      const refundTx = await refundDonation(campaignId, donationIndex);
+      await refundTx.wait();
+      fetchDonators();
   
-      // Update amountCollected after refund
       const campaign = campaigns.find(c => c.pId === campaignId);
       if (campaign) {
-        const refundAmount = donators.find(d => d.donator === donatorAddress).donation;
+        const refundAmount = donators[donationIndex].donation;
         const newAmountCollected = ethers.utils.formatEther(campaign.amountCollected) - refundAmount;
         await updateAmountCollected(campaignId, newAmountCollected);
       }
@@ -101,6 +87,7 @@ const CampaignDetails = () => {
       setIsLoading(false);
     }
   };
+  
 
 
   const fetchCampaigns = async () => {
@@ -177,7 +164,7 @@ const CampaignDetails = () => {
   
       // Assume the transaction is successful if it reaches here
       setIsLoading(false);
-      toast.success("Dana berhasil ditarik!");
+      toast.success("Withdraw Succesfull!");
     } catch (error) {
       console.error("Error withdrawing funds:", error);
       setIsLoading(false);
@@ -291,8 +278,8 @@ const CampaignDetails = () => {
                             ) : (
                               <button
                                 className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                                onClick={() => handleRefund(state.pId, item.donator)}
-                                disabled={fundsWithdrawn}
+                                onClick={() => handleRefund(state.pId, idx)}
+                                disabled={isLoading}
                               >
                                 Refund
                               </button>
@@ -322,7 +309,7 @@ const CampaignDetails = () => {
           </h4>
           <div className='mt-[20px] flex flex-col p-4 bg-[#1c1c24] rounded-[10px]'>
             <p className='font-epilogue font-medium text-[20px] leading-[30px] text-center text-[#808191]'>
-              {(remainingDays > 0 && parseFloat(state.amountCollected) < parseFloat(state.target)) ? 'Fund the campaign': 'Funding has ended'}
+              {(remainingDays >= 0 && parseFloat(state.amountCollected) < parseFloat(state.target)) ? 'Fund the campaign': 'Funding has ended'}
             </p>
             <div className='mt-[30px]'>
                 <input 
@@ -332,7 +319,7 @@ const CampaignDetails = () => {
                   className='w-full py-[10px] sm:px-[20px] px-[15px] outline-none border border-[#3a3a43] bg-transparent font-epilogue text-white text-[18px] leading-[30px] placeholder:text-[#4b5264] rounded-[10px]'
                   value={amount}
                   onChange={(e) => {setAmount(e.target.value)}}
-                  disabled={remainingDays <= 0 || parseFloat(state.amountCollected) >= parseFloat(state.target) }
+                  disabled={remainingDays < 0 || parseFloat(state.amountCollected) >= parseFloat(state.target) }
                    />
 
                 <input
@@ -354,7 +341,7 @@ const CampaignDetails = () => {
                     <p className='mt-[20px] font-epilogue font-normal leading-[22px] text-[#808191]'>Be careful, this campaign could be a scam, we FundPI will not be responsible if there is a problem, so be careful when donating a campaign.</p>
                   </div>
                   <div className='flex flex-col justify-center items-center'>
-                    {(remainingDays > 0 && parseFloat(state.amountCollected) < parseFloat(state.target) && address !== undefined) ? (
+                    {(remainingDays >= 0 && parseFloat(state.amountCollected) < parseFloat(state.target) && address !== undefined) ? (
                       <CustomButton
                         btnType='submit'
                         title='Donate'
@@ -369,40 +356,38 @@ const CampaignDetails = () => {
                         disabled
                       />
                     )}
-
                     <div className="mt-[40px] mb-[30px]">
-                      {(remainingDays > 0 && parseFloat(state.amountCollected) < parseFloat(state.target) && address !== undefined) ? (
-                        address == state.owner && (
-                          <div className="flex flex-wrap gap-[40px]">
-                            <CustomButton
-                              btnType="button"
-                              id={state.pId}
-                              title="Update Campaign"
-                              styles="w-full bg-[#ac73ff]"
-                              handleClick={handleUpdate}
-                            />
-
-                            <CustomButton
-                              btnType="button"
-                              title="Delete Campaign"
-                              styles="w-full bg-[#FF0000]"
-                              handleClick={handleDelete}
-                            />
-
-                            <CustomButton
+                      {address === state.owner && (
+                        <div className="flex flex-wrap gap-[40px]">
+                          {(remainingDays >= 0 && parseFloat(state.amountCollected) < parseFloat(state.target)) && (
+                            <>
+                              <CustomButton
                                 btnType="button"
-                                title="Withdraw Funds"
-                                styles="w-full bg-[#4acd8d]"
-                                handleClick={() => handleWithdraw(state.pId)}
-                                />
-                          </div>
-                        )
-                      ) : (
-                        <div></div>
+                                id={state.pId}
+                                title="Update Campaign"
+                                styles="w-full bg-[#ac73ff]"
+                                handleClick={handleUpdate}
+                              />
+
+                              <CustomButton
+                                btnType="button"
+                                title="Delete Campaign"
+                                styles="w-full bg-[#FF0000]"
+                                handleClick={handleDelete}
+                              />
+                            </>
+                          )}
+
+                          <CustomButton
+                            btnType="button"
+                            title="Withdraw Funds"
+                            styles="w-full bg-[#4acd8d]"
+                            handleClick={() => handleWithdraw(state.pId)}
+                          />
+                        </div>
                       )}
                     </div>
                   </div>
-                  
             </div>
           </div>
         </div>

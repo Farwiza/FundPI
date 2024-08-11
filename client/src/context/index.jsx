@@ -8,7 +8,7 @@ import "react-toastify/dist/ReactToastify.css";
 const StateContext = createContext();
 
 export const StateContextProvider = ({ children }) => {
-    const { contract } = useContract('0x04704BB4362867028A90377a86d6255125Aae279');
+    const { contract } = useContract('0xAB69dcCb53Be91a0D68AE9E37d760C5b0b7236CD');
     const { mutateAsync: createCampaign } = useContractWrite(contract, 'createCampaign');
     const { mutateAsync: withdrawFunds } = useContractWrite(contract, 'withdrawFunds');
 
@@ -132,51 +132,61 @@ export const StateContextProvider = ({ children }) => {
     };
     
     const getDonations = async (pId) => {
-        const donations = await contract.call('getDonators', [pId]);
-
-        const numberOfDonations = donations[0].length
-
-        const parsedDonations = [];
-
-        for(let i = 0; i < numberOfDonations; i++) {
-            parsedDonations.push({
-                donator:donations[0][i],
-                donation:ethers.utils.formatEther(donations[1][i].toString()),
-                donateName: donations[2][i], // Add donateName
-                donateMessage: donations[3][i] // Add donateMessage
-    
-            })
-        }
-
-        return parsedDonations;
-    }
-
-    const refundDonation = async (pId) => {
-      try {
-          const data = await contract.call('refundDonation', [pId]);
-          console.log('Refund donation success:', data);
-          return data;
-      } catch (error) {
-          console.error('Error refunding donation:', error);
-          throw error;  // Rethrow to handle it in the UI layer
+      const donations = await contract.call('getDonators', [pId]);
+  
+      const numberOfDonations = donations[0].length
+  
+      const parsedDonations = [];
+  
+      for(let i = 0; i < numberOfDonations; i++) {
+          parsedDonations.push({
+              donator: donations[0][i],
+              donation: ethers.utils.formatEther(donations[1][i].toString()),
+              donateName: donations[2][i],
+              donateMessage: donations[3][i],
+              refunded: donations[4][i] // Tambahkan status refund
+          })
       }
+  
+      return parsedDonations;
+  }
+
+  const refundDonation = async (pId, donationIndex) => {
+    try {
+        const data = await contract.call('refundDonation', [pId, donationIndex]);
+        console.log('Refund donation success:', data);
+        return data;
+    } catch (error) {
+        console.error('Error refunding donation:', error);
+        throw error;
+    }
   };
 
-    const getRefundedDonations = async (pId, donatorAddress) => {
-      const refundedDonations = await contract.call('refundedDonations', [pId, donatorAddress]);
-      return refundedDonations;
+  const isDonationWithdrawn = async (pId, donationIndex) => {
+    try {
+      const withdrawn = await contract.call('donationWithdrawn', [pId, donationIndex]);
+      return withdrawn;
+    } catch (error) {
+      console.error('Error checking donation withdrawal status:', error);
+      return false;
     }
+  };
 
-    const updateAmountCollected = async (pId, amount) => {
-      try {
-        const data = await contract.call("updateAmountCollected", [pId, amount]);
-        toast.success("Amount collected updated successfully.");
-        console.log("contract call success", data);
-      } catch (error) {
-        toast.error("Error while updating amount collected, please try again");
-        console.log("contract call failure", error);
-      }
-    }
+  // const getRefundedDonations = async (pId, donatorAddress, donationIndex) => {
+  //   const refundedDonation = await contract.call('refundedDonations', [pId, donatorAddress, donationIndex]);
+  //   return refundedDonation;
+  // }
+
+  //   const updateAmountCollected = async (pId, amount) => {
+  //     try {
+  //       const data = await contract.call("updateAmountCollected", [pId, amount]);
+  //       toast.success("Amount collected updated successfully.");
+  //       console.log("contract call success", data);
+  //     } catch (error) {
+  //       toast.error("Error while updating amount collected, please try again");
+  //       console.log("contract call failure", error);
+  //     }
+  //   }
 
     return (
         <StateContext.Provider 
@@ -192,9 +202,10 @@ export const StateContextProvider = ({ children }) => {
                 updateCampaign,
                 deleteCampaign,
                 refundDonation,
-                getRefundedDonations,
-                updateAmountCollected,
+                // getRefundedDonations,
+                // updateAmountCollected,
                 withdrawFunds,
+                isDonationWithdrawn,
                 signer,
             }}
         >   
@@ -205,4 +216,4 @@ export const StateContextProvider = ({ children }) => {
     )
 };
 
-export const useStateContext = () => useContext(StateContext); 
+export const useStateContext = () => useContext(StateContext);
