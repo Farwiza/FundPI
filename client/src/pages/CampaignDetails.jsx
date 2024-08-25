@@ -250,9 +250,9 @@ const CampaignDetails = () => {
             <h4 className='font-epilogue font-semibold text-[18px] text-white uppercase text-center mb-[15px]'>
               Donators
             </h4>
-            <div className="bg-gray-800 bg-opacity-50 rounded-lg p-4">
+            <div className="overflow-x-auto bg-gray-800 bg-opacity-50 rounded-lg p-4">
               <table className="w-full text-left">
-                <thead>
+                <thead className="hidden md:table-header-group">
                   <tr>
                     <th className="py-2 px-4 text-white">No</th>
                     <th className="py-2 px-4 text-white">Name</th>
@@ -265,13 +265,14 @@ const CampaignDetails = () => {
                 <tbody>
                   {donators.length > 0 ? (
                     donators.map((item, idx) => (
-                      <tr key={`${item.donator}-${idx}`}>
-                        <td className="py-2 px-4 text-gray-300">{idx + 1}</td>
-                        <td className="py-2 px-4 text-gray-300">{item.donateName}</td>
-                        <td className="py-2 px-4 text-gray-300">{item.donation} ETH</td>
-                        <td className="py-2 px-4 text-gray-300">{item.donateMessage}</td>
-                        <td className="py-2 px-4 text-gray-300">{item.donator}</td>
-                        <td className="py-2 px-4 text-gray-300">
+                      <tr key={`${item.donator}-${idx}`} className="md:table-row flex flex-col mb-4 border-b border-gray-700 md:border-none">
+                        <td className="py-2 px-4 text-gray-300 before:content-['No:'] before:font-bold before:mr-2 md:before:content-none"><span className="md:hidden font-bold "></span>{idx + 1}</td>
+                        <td className="py-2 px-4 text-gray-300 before:content-['Name:'] before:font-bold before:mr-2 md:before:content-none"><span className="md:hidden font-bold"></span>{item.donateName}</td>
+                        <td className="py-2 px-4 text-gray-300 before:content-['Amount:'] before:font-bold before:mr-2 md:before:content-none"><span className="md:hidden font-bold"></span>{item.donation} ETH</td>
+                        <td className="py-2 px-4 text-gray-300 before:content-['Message:'] before:font-bold before:mr-2 md:before:content-none"><span className="md:hidden font-bold"></span>{item.donateMessage}</td>
+                        <td className="py-2 px-4 text-gray-300 before:content-['Address:'] before:font-bold before:mr-2 md:before:content-none"><span className="md:hidden font-bold"></span>{item.donator}</td>
+                        <td className="py-2 px-4 text-gray-300 before:content-['Refund:'] before:font-bold before:mr-2 md:before:content-none">
+                          <span className="md:hidden font-bold mr-2"></span>
                           {address === item.donator ? (
                             item.refunded ? (
                               <p>Already refunded</p>
